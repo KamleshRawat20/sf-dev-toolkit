@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html data-theme="dark" lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SF Dev Toolkit</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="splash">
+  <div class="splash-mark">SF</div>
+  <div class="splash-title">SF Dev Toolkit</div>
+  <div class="splash-sub" id="splashSub">Looking for an open Salesforce org…</div>
+  <div class="splash-bar"><span></span></div>
+</div>
+
+<!-- ══ HEADER ══════════════════════════════════════════════════════════════ -->
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">SF</div>
+    <div class="brand-text">
+      <strong>Dev Toolkit</strong>
+      <span>permissions · cli auth · explorer</span>
+    </div>
+  </div>
+
+  <div class="org-switch">
+    <select id="orgSelect" title="Salesforce orgs open in your browser"></select>
+    <button class="icon-btn" id="btnReconnect" title="Refresh org list and session">Reconnect</button>
+  </div>
+
+  <div class="topbar-right">
+    <label class="inline-field" title="Salesforce API version used for every call">
+      <span>API</span>
+      <select id="apiVersionSelect"></select>
+    </label>
+    <div class="conn"><i class="dot" id="statusDot"></i><span id="statusText">Connecting…</span></div>
+    <button class="icon-btn" id="btnTheme" title="Switch theme">Light</button>
+    <button class="icon-btn danger" id="btnClearSession" title="Forget the session held in this window">Lock</button>
+  </div>
+</header>
+
+<div class="shell">
+  <!-- ══ NAV RAIL ══════════════════════════════════════════════════════════ -->
+  <nav class="rail" id="rail">
+    <button class="rail-btn active" data-view="org"><b>1</b>Org &amp; session</button>
+    <button class="rail-btn" data-view="cli"><b>2</b>CLI login</button>
+    <button class="rail-btn" data-view="perms"><b>3</b>Permissions</button>
+    <button class="rail-btn" data-view="access"><b>4</b>User access</button>
+    <button class="rail-btn" data-view="query"><b>5</b>SOQL</button>
+    <button class="rail-btn" data-view="apex"><b>6</b>Apex</button>
+    <button class="rail-btn" data-view="rest"><b>7</b>REST</button>
+    <button class="rail-btn" data-view="logs"><b>8</b>Debug logs</button>
+    <button class="rail-btn" data-view="limits"><b>9</b>Limits</button>
+    <button class="rail-btn" data-view="utils"><b>0</b>Utilities</button>
+    <div class="rail-foot">Alt + number switches view</div>
+  </nav>
+
+  <main class="stage">
+
+  <!-- ══ VIEW: ORG & SESSION ═════════════════════════════════════════════ -->
+  <section class="view active" id="view-org">
+    <div class="view-head">
+      <h1>Org &amp; session</h1>
+      <p>The org whose session this window is using. Everything else in the toolkit runs against it.</p>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head"><h2>Org details</h2><button class="btn ghost" id="btnCopyOrgInfo">Copy summary</button></div>
+        <dl class="kv" id="orgInfo">
+          <div><dt>Org name</dt><dd id="orgName">—</dd></div>
+          <div><dt>Org id</dt><dd class="mono" id="orgId">—</dd></div>
+          <div><dt>Edition</dt><dd id="orgType">—</dd></div>
+          <div><dt>Environment</dt><dd id="orgEnv">—</dd></div>
+          <div><dt>Instance</dt><dd class="mono" id="orgInstance">—</dd></div>
+          <div><dt>Instance url</dt><dd class="mono" id="orgUrl">—</dd></div>
+          <div><dt>User</dt><dd id="orgUser">—</dd></div>
+          <div><dt>Username</dt><dd class="mono" id="orgUsername">—</dd></div>
+          <div><dt>Profile</dt><dd id="orgProfile">—</dd></div>
+          <div><dt>Latest API</dt><dd class="mono" id="orgLatestApi">—</dd></div>
+        </dl>
+      </div>
+
+      <div class="card secret">
+        <div class="card-head">
+          <h2>Session token</h2>
+          <span class="tag warn">sensitive</span>
+        </div>
+        <p class="hint">This token is your full org access. It stays in this window's memory only — never saved to disk, never synced. It dies when you close the window or hit Lock.</p>
+        <div class="token-box"><code id="tokenMasked">—</code></div>
+        <div class="btn-row">
+          <button class="btn" id="btnRevealToken">Reveal 15s</button>
+          <button class="btn primary" id="btnCopyToken">Copy token</button>
+          <button class="btn ghost" id="btnCopyInstance">Copy instance url</button>
+          <button class="btn ghost" id="btnCopyFrontdoor">Copy login link</button>
+          <button class="btn ghost" id="btnClearClipboard">Wipe clipboard</button>
+        </div>
+
+        <label class="check"><input type="checkbox" id="rememberSession"><span>Keep this session until the browser closes, so reopening the toolkit skips the handshake</span></label>
+        <p class="hint">Stored in the browser's session memory (<code class="mono">chrome.storage.session</code>), which extension pages alone can read and which is wiped when Chrome quits. Nothing touches disk either way.</p>
+
+        <div class="divider"><span>or paste a session from elsewhere</span></div>
+        <div class="field-row">
+          <input class="input mono" id="manualInstance" placeholder="https://mydomain.my.salesforce.com" autocomplete="off" spellcheck="false">
+          <input class="input mono" id="manualToken" type="password" placeholder="Session id / access token" autocomplete="off" spellcheck="false">
+          <button class="btn primary" id="btnUseManual">Use it</button>
+        </div>
+        <p class="hint">Handy when the org isn't open in this browser — a token from <code class="mono">sf org display</code> works.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>Setup shortcuts</h2><p class="hint">Opens in a new tab, signed in as you.</p></div>
+      <div class="link-grid" id="quickLinks"></div>
+    </div>
+  </section>
+
+  <!-- ══ VIEW: CLI LOGIN ═════════════════════════════════════════════════ -->
+  <section class="view" id="view-cli">
+    <div class="view-head">
+      <h1>Authenticate the CLI</h1>
+      <p>Copy one line, paste it in your terminal, and <code class="mono">sf</code> is logged in to this org — no browser round-trip, no password.</p>
+    </div>
+
+    <div class="card">
+      <div class="tabs" id="shellTabs">
+        <button class="tab active" data-shell="powershell">PowerShell <em>Windows</em></button>
+        <button class="tab" data-shell="cmd">CMD <em>Windows</em></button>
+        <button class="tab" data-shell="bash">bash / zsh <em>macOS · Linux</em></button>
+        <button class="tab" data-shell="fish">fish <em>any</em></button>
+        <button class="tab" data-shell="gitbash">Git Bash <em>Windows</em></button>
+      </div>
+
+      <div class="cli-options">
+        <label class="inline-field grow">
+          <span>Alias</span>
+          <input class="input mono" id="cliAlias" spellcheck="false" autocomplete="off" placeholder="my-org">
+        </label>
+        <label class="check"><input type="checkbox" id="cliSetDefault" checked><span>Set as default org (<code class="mono">--set-default</code>)</span></label>
+        <label class="check"><input type="checkbox" id="cliSetDevHub"><span>Also set as default Dev Hub</span></label>
+        <label class="check"><input type="checkbox" id="cliVerify"><span>Append <code class="mono">sf org display</code> to verify</span></label>
+        <label class="check"><input type="checkbox" id="cliLegacy"><span>Use legacy <code class="mono">sfdx</code> syntax</span></label>
+        <label class="check"><input type="checkbox" id="cliNoToken"><span>Placeholder instead of the real token</span></label>
+      </div>
+
+      <div class="code-block">
+        <div class="code-head">
+          <span class="mono" id="cliShellName">PowerShell</span>
+          <span class="tag warn" id="cliTokenState">token hidden</span>
+          <div class="spacer"></div>
+          <button class="btn ghost" id="btnRevealCli">Reveal 15s</button>
+          <button class="btn primary" id="btnCopyCli">Copy command</button>
+        </div>
+        <pre id="cliCommand" class="mono">Connect to an org first.</pre>
+      </div>
+
+      <p class="hint" id="cliHint"></p>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head"><h2>How to use it</h2></div>
+        <ol class="steps" id="cliSteps"></ol>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Other commands for this org</h2></div>
+        <div class="snippet-list" id="cliSnippets"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ VIEW: PERMISSIONS ═══════════════════════════════════════════════ -->
+  <section class="view split" id="view-perms">
+    <div class="panel-left">
+      <div class="panel-head">
+        <label class="inline-field block">
+          <span>Explore</span>
+          <select id="compTypeSelect" class="input">
+            <option value="objects">Objects &amp; fields</option>
+            <optgroup label="Components">
+              <option value="apexclass">Apex classes</option>
+              <option value="apexpage">Visualforce pages</option>
+              <option value="lwc">Lightning web components</option>
+              <option value="aura">Aura components</option>
+              <option value="flow">Flows</option>
+              <option value="customapp">Custom apps</option>
+              <option value="tab">Tabs</option>
+              <option value="connectedapp">Connected apps</option>
+              <option value="customperm">Custom permissions</option>
+              <option value="recordtype">Record types</option>
+              <option value="sysperm">System permissions</option>
+            </optgroup>
+          </select>
+        </label>
+        <div class="panel-title" id="leftPanelLabel">Objects <span class="pill" id="objCount">0</span></div>
+        <input id="leftSearch" class="input" placeholder="Filter by label or api name">
+        <div class="btn-row tight">
+          <button class="btn ghost" id="selAllLeftBtn">Select all</button>
+          <button class="btn ghost" id="deselAllLeftBtn">Clear</button>
+          <label class="check tiny"><input type="checkbox" id="customOnlyChk"><span>Custom only</span></label>
+        </div>
+      </div>
+      <div class="scroll"><div id="leftItemList"></div></div>
+    </div>
+
+    <div class="panel-right">
+      <div class="tabs" id="objTabBar">
+        <button class="tab active" id="tabFields">Field permissions</button>
+        <button class="tab" id="tabObjPerms">Object permissions</button>
+      </div>
+
+      <div class="tab-panel" id="panelFields">
+        <div class="col-fields">
+          <div class="panel-head">
+            <div class="panel-title">Fields <span class="pill" id="selectedCount">0 selected</span></div>
+            <input id="fieldSearch" class="input" placeholder="Filter fields">
+            <div class="btn-row tight">
+              <button class="btn ghost" id="selAllFieldBtn">All</button>
+              <button class="btn ghost" id="deselAllFieldBtn">Clear</button>
+              <button class="btn ghost" id="copySoqlBtn" title="SELECT of every loaded field">Copy SOQL</button>
+              <button class="btn ghost" id="dlAllFieldsBtn">Field CSV</button>
+            </div>
+            <button class="btn primary wide" id="viewPermsBtn">Load field permissions</button>
+          </div>
+          <div class="scroll"><div id="fieldList"></div></div>
+        </div>
+        <div class="col-perms">
+          <div class="panel-head row">
+            <div class="panel-title">Field-level security</div>
+            <div class="btn-row">
+              <button class="btn ghost" id="downloadCsvBtn" hidden>CSV</button>
+              <button class="btn ghost" id="downloadXlsxBtn" hidden>Excel</button>
+              <button class="btn ghost" id="copyTableBtn" hidden>Copy table</button>
+            </div>
+            <p class="hint" id="permHint">Pick fields on the left, then load.</p>
+          </div>
+          <div class="scroll"><div id="permList"></div></div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panelObjPerms" hidden>
+        <div class="col-perms">
+          <div class="panel-head row">
+            <div class="panel-title">Object-level security</div>
+            <div class="btn-row">
+              <button class="btn primary" id="viewObjPermsBtn">Load object permissions</button>
+              <button class="btn ghost" id="dlObjCsvBtn" hidden>CSV</button>
+              <button class="btn ghost" id="dlObjXlsxBtn" hidden>Excel</button>
+            </div>
+            <p class="hint" id="objPermHint">Pick objects on the left, then load.</p>
+          </div>
+          <div class="scroll"><div id="objPermList"></div></div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panelComponent" hidden>
+        <div class="col-perms">
+          <div class="panel-head row">
+            <div class="panel-title" id="compPermLabel">Component permissions</div>
+            <div class="btn-row">
+              <button class="btn primary" id="viewCompPermsBtn">Load permissions</button>
+              <button class="btn ghost" id="dlCompCsvBtn" hidden>CSV</button>
+              <button class="btn ghost" id="dlCompXlsxBtn" hidden>Excel</button>
+            </div>
+            <p class="hint" id="compPermHint">Pick items on the left, then load.</p>
+          </div>
+          <div class="scroll"><div id="compPermList"></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ VIEW: USER ACCESS ═══════════════════════════════════════════════ -->
+  <section class="view" id="view-access">
+    <div class="ua-layout">
+      <div class="panel-left">
+        <div class="panel-head">
+          <div class="panel-title">Users <span class="pill" id="uaUserCount">0</span></div>
+          <input id="uaUserSearch" class="input" placeholder="Name or username, then Enter">
+          <div class="btn-row tight">
+            <button class="btn primary" id="uaSearchUsersBtn">Search</button>
+            <button class="btn ghost" id="uaSelAllUsers">All</button>
+            <button class="btn ghost" id="uaDeselAllUsers">Clear</button>
+          </div>
+        </div>
+        <div class="scroll"><div id="uaUserList"></div></div>
+      </div>
+
+      <div class="panel-left">
+        <div class="panel-head">
+          <div class="panel-title">Objects <span class="pill" id="uaObjCount">0</span></div>
+          <input id="uaObjSearch" class="input" placeholder="Filter objects">
+          <div class="btn-row tight">
+            <button class="btn ghost" id="uaSelAllObjs">All</button>
+            <button class="btn ghost" id="uaDeselAllObjs">Clear</button>
+          </div>
+        </div>
+        <div class="scroll"><div id="uaObjList"></div></div>
+      </div>
+
+      <div class="panel-right">
+        <div class="panel-head row">
+          <div class="panel-title">Effective field access</div>
+          <div class="btn-row">
+            <button class="btn primary" id="uaFetchBtn">Fetch access</button>
+            <button class="btn ghost" id="uaDlCsvBtn" hidden>CSV</button>
+            <button class="btn ghost" id="uaDlXlsxBtn" hidden>Excel</button>
+          </div>
+          <p class="hint" id="uaHint">Pick users and objects, then fetch. Profile and permission-set grants are combined.</p>
+        </div>
+        <div class="scroll wide-scroll"><div id="uaResultArea"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ VIEW: SOQL ══════════════════════════════════════════════════════ -->
+  <section class="view" id="view-query">
+    <div class="view-head">
+      <h1>SOQL</h1>
+      <p>Ctrl/⌘ + Enter runs the query. Results export straight to CSV.</p>
+    </div>
+    <div class="card">
+      <div class="btn-row">
+        <select class="input auto" id="queryTemplates"><option value="">Starter queries…</option></select>
+        <label class="check"><input type="checkbox" id="queryTooling"><span>Tooling API</span></label>
+        <label class="check"><input type="checkbox" id="queryAll"><span>Include deleted (queryAll)</span></label>
+        <div class="spacer"></div>
+        <button class="btn ghost" id="btnQueryCopy" hidden>Copy TSV</button>
+        <button class="btn ghost" id="btnQueryCsv" hidden>CSV</button>
+        <button class="btn primary" id="btnRunQuery">Run</button>
+      </div>
+      <textarea id="soqlInput" class="editor mono" spellcheck="false" rows="5">SELECT Id, Name, CreatedDate FROM Account ORDER BY CreatedDate DESC LIMIT 50</textarea>
+      <p class="hint" id="queryStatus">Ready.</p>
+    </div>
+    <div class="card grow-card">
+      <div class="scroll wide-scroll"><div id="queryResult"></div></div>
+    </div>
+  </section>
+
+  <!-- ══ VIEW: APEX ══════════════════════════════════════════════════════ -->
+  <section class="view" id="view-apex">
+    <div class="view-head">
+      <h1>Anonymous Apex</h1>
+      <p>Runs as you, through the Tooling API. Ctrl/⌘ + Enter executes.</p>
+    </div>
+    <div class="card">
+      <div class="btn-row">
+        <select class="input auto" id="apexTemplates"><option value="">Snippets…</option></select>
+        <div class="spacer"></div>
+        <button class="btn ghost" id="btnApexClear">Clear output</button>
+        <button class="btn primary" id="btnRunApex">Execute</button>
+      </div>
+      <textarea id="apexInput" class="editor mono" spellcheck="false" rows="8">System.debug('Hello from ' + UserInfo.getName());</textarea>
+      <p class="hint" id="apexStatus">Ready.</p>
+    </div>
+    <div class="card grow-card">
+      <div class="scroll"><pre id="apexResult" class="mono log"></pre></div>
+    </div>
+  </section>
+
+  <!-- ══ VIEW: REST ══════════════════════════════════════════════════════ -->
+  <section class="view" id="view-rest">
+    <div class="view-head">
+      <h1>REST explorer</h1>
+      <p>Any path under your instance. Start with <code class="mono">/services/data/</code>.</p>
+    </div>
+    <div class="card">
+      <div class="btn-row">
+        <select class="input auto" id="restMethod">
+          <option>GET</option><option>POST</option><option>PATCH</option><option>PUT</option><option>DELETE</option>
+        </select>
+        <input class="input mono grow" id="restPath" value="/services/data/" spellcheck="false">
+        <button class="btn ghost" id="btnRestCopy" hidden>Copy JSON</button>
+        <button class="btn primary" id="btnRestSend">Send</button>
+      </div>
+      <textarea id="restBody" class="editor mono" spellcheck="false" rows="4" placeholder='Request body for POST / PATCH, e.g. {"Name":"Acme"}'></textarea>
+      <p class="hint" id="restStatus">Ready.</p>
+    </div>
+    <div class="card grow-card">
+      <div class="scroll"><pre id="restResult" class="mono log"></pre></div>
+    </div>
+  </section>
+
+  <!-- ══ VIEW: DEBUG LOGS ════════════════════════════════════════════════ -->
+  <section class="view split" id="view-logs">
+    <div class="panel-left wide">
+      <div class="panel-head">
+        <div class="panel-title">Recent logs <span class="pill" id="logCount">0</span></div>
+        <div class="btn-row tight">
+          <button class="btn primary" id="btnLoadLogs">Refresh</button>
+          <label class="check tiny"><input type="checkbox" id="logsMineOnly" checked><span>Only mine</span></label>
+          <button class="btn ghost danger" id="btnDeleteLogs">Delete all</button>
+        </div>
+        <p class="hint" id="logStatus">Load the last 50 debug logs.</p>
+      </div>
+      <div class="scroll"><div id="logList"></div></div>
+    </div>
+    <div class="panel-right">
+      <div class="panel-head row">
+        <div class="panel-title">Log body</div>
+        <div class="btn-row">
+          <input class="input" id="logFilter" placeholder="Filter lines (e.g. USER_DEBUG)">
+          <button class="btn ghost" id="btnCopyLog">Copy</button>
+        </div>
+      </div>
+      <div class="scroll"><pre id="logBody" class="mono log">Pick a log on the left.</pre></div>
+    </div>
+  </section>
+
+  <!-- ══ VIEW: LIMITS ════════════════════════════════════════════════════ -->
+  <section class="view" id="view-limits">
+    <div class="view-head">
+      <h1>Org limits</h1>
+      <p>Live numbers from the limits resource. Anything above 80% used is flagged.</p>
+    </div>
+    <div class="card">
+      <div class="btn-row"><button class="btn primary" id="btnLoadLimits">Refresh</button><span class="hint" id="limitsStatus"></span></div>
+    </div>
+    <div class="card grow-card"><div class="scroll"><div id="limitsGrid" class="limit-grid"></div></div></div>
+  </section>
+
+  <!-- ══ VIEW: UTILITIES ═════════════════════════════════════════════════ -->
+  <section class="view" id="view-utils">
+    <div class="view-head">
+      <h1>Utilities</h1>
+      <p>The small conversions and jumps you do a dozen times a day.</p>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head"><h2>Record id: 15 ↔ 18</h2></div>
+        <div class="field-row">
+          <input class="input mono grow" id="idInput" placeholder="0015g00000XyZaB" spellcheck="false">
+          <button class="btn primary" id="btnConvertId">Convert</button>
+        </div>
+        <div class="result-box mono" id="idOutput">—</div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Open a record by id</h2></div>
+        <div class="field-row">
+          <input class="input mono grow" id="openIdInput" placeholder="Record id, or object api name" spellcheck="false">
+          <button class="btn primary" id="btnOpenId">Open</button>
+        </div>
+        <p class="hint">A 15/18-char id opens the record. An object api name opens its Object Manager page.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Key prefix → object</h2></div>
+        <div class="field-row">
+          <input class="input mono grow" id="prefixInput" placeholder="001, a0X, 0Ps…" spellcheck="false" maxlength="3">
+          <button class="btn primary" id="btnPrefix">Look up</button>
+        </div>
+        <div class="result-box mono" id="prefixOut">—</div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Session-safe housekeeping</h2></div>
+        <div class="btn-row">
+          <button class="btn ghost" id="btnClearCaches">Clear describe cache</button>
+          <button class="btn ghost" id="btnClearClipboard2">Wipe clipboard</button>
+          <button class="btn ghost danger" id="btnClearSession2">Forget session</button>
+        </div>
+        <p class="hint">Describe results are cached in memory to keep the UI quick. Clear them after a metadata deploy.</p>
+      </div>
+    </div>
+  </section>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script src="js/core.js"></script>
+<script src="js/cli.js"></script>
+<script src="js/permissions.js"></script>
+<script src="js/useraccess.js"></script>
+<script src="js/tools.js"></script>
+<script src="js/boot.js"></script>
+</body>
+</html>
