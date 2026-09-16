@@ -1,4 +1,4 @@
-# SF Dev Toolkit v2
+# SF Dev Toolkit v1.0.0
 
 A rebuild of the SF Permission Explorer: same permission auditing, plus CLI
 authentication, SOQL, anonymous Apex, a REST explorer, debug logs, org limits
